@@ -2,8 +2,13 @@
 // (server.mjs). Fetches CC0 sources, downloads + hashes + dedups locally, and pushes
 // finished records to the Worker (direct-R2 upload when creds are set, else base64).
 
-import { createHash } from "node:crypto";
+import { createHash, webcrypto } from "node:crypto";
 import { AwsClient } from "aws4fetch";
+
+// aws4fetch signs R2 (S3) requests with the Web Crypto API. Some Node runtimes don't
+// expose it as a global `crypto`, which throws "crypto is not defined" during direct-R2
+// upload. Polyfill it so this works regardless of Node version.
+if (!globalThis.crypto) globalThis.crypto = webcrypto;
 import { openverseSearch } from "./sources/openverse.mjs";
 import { wikimediaSearch } from "./sources/wikimedia.mjs";
 import { dHash, fromHex, hamming, toHex } from "./phash.mjs";
