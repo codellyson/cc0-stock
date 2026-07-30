@@ -1,10 +1,13 @@
-# One-off runs:  docker compose run --rm ingest --q "mountain lake" --pages 3
-# Batch backfill: docker compose run --rm --entrypoint sh ingest run.sh
+# Service (default):  docker compose up            -> serves /health + POST /run on :8080
+# One-off CLI run:     docker compose run --rm ingest node ingest.mjs --q "mountain lake" --pages 3
+# Batch backfill:      docker compose run --rm ingest sh run.sh
 services:
   ingest:
     build: .
     image: cc0-ingest
     env_file: .env
+    ports:
+      - "8080:8080"
     volumes:
       # so you can edit queries.txt without rebuilding
       - ./queries.txt:/app/queries.txt:ro

@@ -7,6 +7,7 @@
   "bin": { "cc0-ingest": "./ingest.mjs" },
   "engines": { "node": ">=18.17" },
   "scripts": {
+    "start": "node server.mjs",
     "ingest": "node ingest.mjs",
     "backfill": "sh run.sh"
   },

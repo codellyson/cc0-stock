@@ -11,5 +11,8 @@ RUN pnpm install --prod
 
 COPY . .
 
-# Config comes from the environment (docker run --env-file .env ...).
-ENTRYPOINT ["node", "ingest.mjs"]
+# Default: run the HTTP service (health + POST /run) — this is what a PaaS deploys.
+# For a one-shot CLI run instead, override the command:
+#   docker run --env-file .env cc0-ingest node ingest.mjs --q "mountain lake" --pages 3
+EXPOSE 8080
+CMD ["node", "server.mjs"]
