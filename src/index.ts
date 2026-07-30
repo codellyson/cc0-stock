@@ -1,5 +1,5 @@
 import type { Env } from "./types";
-import { StockMCP } from "./mcp";
+import { handleMcp } from "./mcp";
 import {
   createJob,
   getHashes,
@@ -13,17 +13,14 @@ import {
   type StorePayload,
 } from "./store";
 
-// The Durable Object class backing the MCP server must be exported from the entry.
-export { StockMCP };
-
 export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    // Agent-facing MCP endpoint (Streamable HTTP transport).
+    // Agent-facing MCP endpoint (stateless JSON-RPC over HTTP, no Durable Object).
     if (path === "/mcp" || path.startsWith("/mcp/")) {
-      return StockMCP.serve("/mcp", { binding: "STOCK_MCP" }).fetch(request, env, ctx);
+      return handleMcp(request, env, url);
     }
 
     try {

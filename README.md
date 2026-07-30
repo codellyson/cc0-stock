@@ -44,7 +44,7 @@ Wikimedia API ─┴───►│ (native sharp, fast, no CPU cap)            
 | GET | `/hashes` | Admin: existing id/sha256/phash for dedup. `Bearer INGEST_SECRET`. |
 | POST | `/store` | Admin: store one prepared record. `Bearer INGEST_SECRET`. |
 
-**MCP server** (`/mcp`, Streamable HTTP): tools `search_images(query, limit)` and
+**MCP server** (`/mcp`, stateless JSON-RPC over HTTP — no Durable Object): tools `search_images(query, limit)` and
 `get_image(id)`. Every record carries `license`; CC0 clears copyright, not a recognizable
 person's publicity rights or trademarks — `provenance_url` is kept so images can be vetted.
 
@@ -142,9 +142,10 @@ it down, front it with `@cloudflare/workers-oauth-provider`.
 ## Cost
 
 Designed to sit on Cloudflare's **free tier**: Workers requests, D1, and R2 all have free
-allowances, and R2 has no egress fees. No Queue and no Durable-Object-heavy ingestion, so
-no forced paid plan. The only always-on compute — the ingest CLI — runs on hardware you
-already own. Watch R2 storage as the library grows; that's the main thing that scales.
+allowances, and R2 has no egress fees. No Queue and no Durable Objects at all (the MCP
+server is stateless plain HTTP), so nothing forces a paid plan. The only always-on compute
+— the ingest service — runs on hardware you already own. Watch R2 storage as the library
+grows; that's the main thing that scales.
 
 ## Next steps worth adding
 

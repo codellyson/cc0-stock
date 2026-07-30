@@ -3,7 +3,6 @@
   "name": "cc0-stock",
   "main": "src/index.ts",
   "compatibility_date": "2025-07-01",
-  "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
 
   // 8787 is taken on this machine by the justnotetaking worker; use 8799 here.
@@ -31,8 +30,10 @@
     }
   ],
 
-  "durable_objects": {
-    "bindings": [{ "name": "STOCK_MCP", "class_name": "StockMCP" }]
-  },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["StockMCP"] }]
+  // v1 created the MCP Durable Object; v2 removes it — the MCP server is now stateless
+  // plain HTTP, so no Durable Object is used at all.
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["StockMCP"] },
+    { "tag": "v2", "deleted_classes": ["StockMCP"] }
+  ]
 }
