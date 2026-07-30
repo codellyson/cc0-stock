@@ -1,0 +1,9 @@
+# Copy to `.dev.vars` for local `wrangler dev`. Do NOT commit `.dev.vars`.
+INGEST_SECRET="dev-secret-change-me"
+
+# Absolute origin used to build image_url in MCP responses. For local dev:
+PUBLIC_BASE_URL="http://localhost:8787"
+
+# Optional: higher Openverse rate limits (see README). Anonymous works without these.
+OPENVERSE_CLIENT_ID=""
+OPENVERSE_CLIENT_SECRET=""

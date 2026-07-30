@@ -1,0 +1,10 @@
+# One-off runs:  docker compose run --rm ingest --q "mountain lake" --pages 3
+# Batch backfill: docker compose run --rm --entrypoint sh ingest run.sh
+services:
+  ingest:
+    build: .
+    image: cc0-ingest
+    env_file: .env
+    volumes:
+      # so you can edit queries.txt without rebuilding
+      - ./queries.txt:/app/queries.txt:ro

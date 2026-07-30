@@ -1,0 +1,17 @@
+{
+  "name": "cc0-stock-ingest",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Off-Worker ingestion CLI: fetch CC0 sources, hash + dedup, push to the cc0-stock Worker",
+  "bin": { "cc0-ingest": "./ingest.mjs" },
+  "engines": { "node": ">=18.17" },
+  "scripts": {
+    "ingest": "node ingest.mjs",
+    "backfill": "sh run.sh"
+  },
+  "dependencies": {
+    "aws4fetch": "^1.0.20",
+    "sharp": "^0.33.0"
+  }
+}

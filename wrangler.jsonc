@@ -1,0 +1,38 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cc0-stock",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-07-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+
+  // 8787 is taken on this machine by the justnotetaking worker; use 8799 here.
+  "dev": { "port": 8799 },
+
+  "vars": {
+    // Fill in after first deploy: your Worker's public origin, no trailing slash.
+    // Used to build absolute image_url values in MCP tool responses.
+    "PUBLIC_BASE_URL": "https://cc0-stock.iamdellyson.workers.dev"
+  },
+
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "cc0-stock"
+    }
+  ],
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cc0-stock",
+      // Run `wrangler d1 create cc0-stock` and paste the id it prints here.
+      "database_id": "a43d3e8b-5360-4261-b064-a7576492885b"
+    }
+  ],
+
+  "durable_objects": {
+    "bindings": [{ "name": "STOCK_MCP", "class_name": "StockMCP" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["StockMCP"] }]
+}

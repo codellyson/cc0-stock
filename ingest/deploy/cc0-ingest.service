@@ -1,0 +1,11 @@
+[Unit]
+Description=cc0-stock ingestion backfill (runs queries.txt once)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Adjust User and paths to your VPS layout.
+User=cc0
+WorkingDirectory=/srv/cc0-stock/ingest
+ExecStart=/bin/sh /srv/cc0-stock/ingest/run.sh

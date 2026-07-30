@@ -1,0 +1,23 @@
+{
+  "name": "cc0-stock",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Ingest CC0 images from Openverse into R2 + D1 and expose an agent-queryable search API + MCP server",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init": "wrangler d1 execute cc0-stock --local --file=./schema.sql",
+    "db:init:remote": "wrangler d1 execute cc0-stock --remote --file=./schema.sql",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "agents": "^0.20.1",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250101.0",
+    "typescript": "^5.6.0",
+    "wrangler": "^4.0.0"
+  }
+}

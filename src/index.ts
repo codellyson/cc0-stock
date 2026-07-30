@@ -1,0 +1,134 @@
+import type { Env } from "./types";
+import { StockMCP } from "./mcp";
+import {
+  getHashes,
+  getImageById,
+  insertRecord,
+  queryImages,
+  toRecord,
+  type StorePayload,
+} from "./store";
+
+// The Durable Object class backing the MCP server must be exported from the entry.
+export { StockMCP };
+
+export default {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const url = new URL(request.url);
+    const path = url.pathname;
+
+    // Agent-facing MCP endpoint (Streamable HTTP transport).
+    if (path === "/mcp" || path.startsWith("/mcp/")) {
+      return StockMCP.serve("/mcp", { binding: "STOCK_MCP" }).fetch(request, env, ctx);
+    }
+
+    try {
+      if (request.method === "GET" && path === "/search") {
+        return await handleSearch(env, url);
+      }
+      if (request.method === "GET" && path.startsWith("/images/")) {
+        return await handleGetImage(env, url, decodeURIComponent(path.slice("/images/".length)));
+      }
+      if (request.method === "GET" && path.startsWith("/file/")) {
+        return await handleServeFile(env, decodeURIComponent(path.slice("/file/".length)));
+      }
+      if (request.method === "GET" && path === "/hashes") {
+        return await handleHashes(request, env);
+      }
+      if (request.method === "POST" && path === "/store") {
+        return await handleStore(request, env);
+      }
+      if (path === "/") {
+        return json({
+          service: "cc0-stock",
+          endpoints: {
+            "GET /search?q=&page=&per_page=": "keyword search, returns image records",
+            "GET /images/:id": "single image record",
+            "GET /file/:key": "raw image bytes from R2",
+            "ALL /mcp": "MCP server for agents (search_images, get_image)",
+            "GET /hashes": "admin: existing id/sha256/phash for dedup (Bearer INGEST_SECRET)",
+            "POST /store": "admin: store one prepared record (Bearer INGEST_SECRET)",
+          },
+          note: "Ingestion runs off-Worker (see ingest/ CLI); the Worker only serves and stores.",
+        });
+      }
+      return json({ error: "not_found" }, 404);
+    } catch (err) {
+      return json({ error: "internal", message: (err as Error).message }, 500);
+    }
+  },
+} satisfies ExportedHandler<Env>;
+
+async function handleSearch(env: Env, url: URL): Promise<Response> {
+  const q = url.searchParams.get("q")?.trim() || undefined;
+  const perPage = clamp(int(url.searchParams.get("per_page"), 20), 1, 100);
+  const page = Math.max(1, int(url.searchParams.get("page"), 1));
+
+  const rows = await queryImages(env, { q, page, perPage });
+  const results = rows.map((r) => toRecord(r, url.origin));
+  return json({ query: q ?? null, page, per_page: perPage, count: results.length, results });
+}
+
+async function handleGetImage(env: Env, url: URL, id: string): Promise<Response> {
+  const row = await getImageById(env, id);
+  if (!row) return json({ error: "not_found" }, 404);
+  return json(toRecord(row, url.origin));
+}
+
+async function handleServeFile(env: Env, key: string): Promise<Response> {
+  const obj = await env.BUCKET.get(key);
+  if (!obj) return json({ error: "not_found" }, 404);
+
+  const headers = new Headers();
+  obj.writeHttpMetadata(headers);
+  headers.set("etag", obj.httpEtag);
+  headers.set("cache-control", "public, max-age=31536000, immutable");
+  return new Response(obj.body, { headers });
+}
+
+async function handleHashes(request: Request, env: Env): Promise<Response> {
+  const unauth = requireAuth(request, env);
+  if (unauth) return unauth;
+  return json(await getHashes(env));
+}
+
+async function handleStore(request: Request, env: Env): Promise<Response> {
+  const unauth = requireAuth(request, env);
+  if (unauth) return unauth;
+
+  const p = (await request.json().catch(() => null)) as StorePayload | null;
+  if (!p || !p.id || !p.provider || !p.providerId || !p.sha256 || !p.r2_key) {
+    return json({ error: "bad_request", message: "missing required fields" }, 400);
+  }
+
+  const result = await insertRecord(env, p);
+  return json(result);
+}
+
+// --- helpers ---------------------------------------------------------------
+
+function requireAuth(request: Request, env: Env): Response | null {
+  if (!env.INGEST_SECRET) {
+    return json({ error: "misconfigured", message: "INGEST_SECRET is not set" }, 500);
+  }
+  if (request.headers.get("authorization") !== `Bearer ${env.INGEST_SECRET}`) {
+    return json({ error: "unauthorized" }, 401);
+  }
+  return null;
+}
+
+function int(v: string | number | null | undefined, fallback: number): number {
+  const n = parseInt(String(v ?? ""), 10);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, n));
+}
+
+function json(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data, null, 2), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8" },
+  });
+}
