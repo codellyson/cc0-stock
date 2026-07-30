@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>cc0-stock ingest</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --border: #e3e6ea; --text: #1c2024;
+    --muted: #697077; --accent: #2f6feb; --accent-fg: #fff;
+    --ok: #1a7f37; --ok-bg: #e6f4ea; --warn: #9a6700; --warn-bg: #fff4d6;
+    --err: #c0392b; --err-bg: #fdecea; --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1216; --panel: #171b21; --border: #262c34; --text: #e6e9ee;
+      --muted: #8b949e; --accent: #4c8dff; --accent-fg: #08111f;
+      --ok: #3fb950; --ok-bg: #12331c; --warn: #d29922; --warn-bg: #3a2e0a;
+      --err: #f85149; --err-bg: #3a1615;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--panel);
+  }
+  header h1 { font-size: 16px; margin: 0; letter-spacing: -0.01em; }
+  header .who { font-size: 13px; color: var(--muted); display: flex; gap: 12px; align-items: center; }
+  header button.link { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 13px; padding: 0; }
+  main { max-width: 1000px; margin: 0 auto; padding: 20px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 18px; margin-bottom: 20px; }
+  .card h2 { font-size: 14px; margin: 0 0 14px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+  form.run { display: grid; grid-template-columns: 2fr 1fr auto auto auto auto; gap: 10px; align-items: end; }
+  @media (max-width: 720px) { form.run { grid-template-columns: 1fr 1fr; } }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  input, select {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 7px;
+    background: var(--bg); color: var(--text); font-size: 14px;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  button.primary {
+    padding: 9px 16px; border: none; border-radius: 7px; background: var(--accent);
+    color: var(--accent-fg); font-weight: 600; cursor: pointer; font-size: 14px; white-space: nowrap;
+  }
+  button.primary:disabled { opacity: .55; cursor: default; }
+  .msg { margin-top: 12px; font-size: 13px; }
+  .msg.err { color: var(--err); }
+  .msg.ok { color: var(--ok); }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; }
+  td.q { white-space: normal; max-width: 240px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .badge.running { color: var(--warn); background: var(--warn-bg); }
+  .badge.done { color: var(--ok); background: var(--ok-bg); }
+  .badge.error { color: var(--err); background: var(--err-bg); }
+  .num { font-variant-numeric: tabular-nums; }
+  .mode { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .empty { color: var(--muted); padding: 24px; text-align: center; }
+  /* login */
+  .gate { max-width: 380px; margin: 12vh auto; }
+  .gate .card { text-align: center; }
+  .gate input { margin: 12px 0; }
+  .hide { display: none !important; }
+  .spin { display:inline-block; width:12px; height:12px; border:2px solid var(--warn); border-right-color:transparent; border-radius:50%; animation: r .7s linear infinite; vertical-align:-1px; margin-right:5px; }
+  @keyframes r { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div id="gate" class="gate hide">
+  <div class="card">
+    <h1 style="margin:0 0 6px">cc0-stock ingest</h1>
+    <p style="color:var(--muted);font-size:14px;margin:0">Enter the dashboard token to continue.</p>
+    <input id="tokenInput" type="password" placeholder="DASHBOARD_TOKEN" autocomplete="off" />
+    <button class="primary" style="width:100%" onclick="connect()">Connect</button>
+    <div id="gateMsg" class="msg err"></div>
+  </div>
+</div>
+
+<div id="app" class="hide">
+  <header>
+    <h1>cc0-stock ingest</h1>
+    <div class="who">
+      <span id="autostate">auto-refresh on</span>
+      <button class="link" onclick="logout()">sign out</button>
+    </div>
+  </header>
+  <main>
+    <div class="card">
+      <h2>Run an ingest</h2>
+      <form class="run" onsubmit="return runJob(event)">
+        <div style="grid-column: 1 / -1;"><!-- spacer removed by grid on desktop --></div>
+        <div style="grid-column: span 2;">
+          <label for="q">Query</label>
+          <input id="q" placeholder="e.g. mountain lake" required />
+        </div>
+        <div>
+          <label for="source">Source</label>
+          <select id="source">
+            <option value="both">both</option>
+            <option value="openverse">openverse</option>
+            <option value="wikimedia">wikimedia</option>
+          </select>
+        </div>
+        <div>
+          <label for="pages">Pages</label>
+          <input id="pages" type="number" min="1" max="5" value="3" />
+        </div>
+        <div>
+          <label for="pageSize">Page size</label>
+          <input id="pageSize" type="number" min="1" max="50" value="20" />
+        </div>
+        <div>
+          <label for="maxDistance">Max dist</label>
+          <input id="maxDistance" type="number" min="0" max="30" value="8" />
+        </div>
+        <div style="grid-column: 1 / -1; display:flex; gap:12px; align-items:center;">
+          <button id="runBtn" class="primary" type="submit">Run ingest</button>
+          <span id="runMsg" class="msg"></span>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Jobs</h2>
+      <div id="jobsWrap" style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Status</th><th>Query</th><th>Source</th><th>Mode</th>
+              <th class="num">Stored</th><th class="num">Skipped</th><th class="num">Failed</th>
+              <th>Started</th><th>Duration</th>
+            </tr>
+          </thead>
+          <tbody id="jobsBody"></tbody>
+        </table>
+        <div id="jobsEmpty" class="empty hide">No jobs yet — run one above.</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const TOKEN_KEY = "cc0_dash_token";
+let pollTimer = null;
+
+function token() { return localStorage.getItem(TOKEN_KEY) || ""; }
+function show(el) { document.getElementById(el).classList.remove("hide"); }
+function hide(el) { document.getElementById(el).classList.add("hide"); }
+
+function boot() {
+  if (token()) { showApp(); } else { showGate(); }
+}
+function showGate() { hide("app"); show("gate"); stopPoll(); document.getElementById("tokenInput").focus(); }
+function showApp() { hide("gate"); show("app"); loadJobs(); startPoll(); }
+
+function connect() {
+  const t = document.getElementById("tokenInput").value.trim();
+  if (!t) return;
+  localStorage.setItem(TOKEN_KEY, t);
+  // verify by loading jobs
+  loadJobs(true).then(ok => { if (ok) showApp(); });
+}
+function logout() { localStorage.removeItem(TOKEN_KEY); showGate(); }
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    ...opts,
+    headers: { ...(opts.headers || {}), authorization: "Bearer " + token() },
+  });
+  if (res.status === 401 || res.status === 500 && !token()) {
+    // handled by callers
+  }
+  return res;
+}
+
+async function runJob(e) {
+  e.preventDefault();
+  const btn = document.getElementById("runBtn");
+  const msg = document.getElementById("runMsg");
+  const body = {
+    q: document.getElementById("q").value.trim(),
+    source: document.getElementById("source").value,
+    pages: +document.getElementById("pages").value,
+    pageSize: +document.getElementById("pageSize").value,
+    maxDistance: +document.getElementById("maxDistance").value,
+  };
+  if (!body.q) return false;
+  btn.disabled = true; msg.className = "msg"; msg.textContent = "";
+  try {
+    const res = await api("/run", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) { logout(); return false; }
+    if (!res.ok) { msg.className = "msg err"; msg.textContent = data.error || ("error " + res.status); return false; }
+    msg.className = "msg ok"; msg.textContent = "started · job " + (data.jobId || "").slice(0, 8);
+    document.getElementById("q").value = "";
+    loadJobs();
+  } catch (err) {
+    msg.className = "msg err"; msg.textContent = String(err);
+  } finally {
+    btn.disabled = false;
+  }
+  return false;
+}
+
+async function loadJobs(fromGate = false) {
+  try {
+    const res = await api("/jobs");
+    if (res.status === 401 || (res.status === 500 && fromGate)) {
+      if (fromGate) { document.getElementById("gateMsg").textContent = "Invalid token."; localStorage.removeItem(TOKEN_KEY); }
+      else { logout(); }
+      return false;
+    }
+    if (!res.ok) return false;
+    const jobs = await res.json();
+    renderJobs(Array.isArray(jobs) ? jobs : []);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+function fmtTime(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso), s = (Date.now() - d.getTime()) / 1000;
+  if (s < 60) return Math.floor(s) + "s ago";
+  if (s < 3600) return Math.floor(s / 60) + "m ago";
+  if (s < 86400) return Math.floor(s / 3600) + "h ago";
+  return d.toLocaleDateString();
+}
+function fmtDur(a, b) {
+  if (!a) return "—";
+  const end = b ? new Date(b).getTime() : Date.now();
+  const s = Math.max(0, (end - new Date(a).getTime()) / 1000);
+  if (s < 60) return s.toFixed(0) + "s";
+  return Math.floor(s / 60) + "m " + Math.floor(s % 60) + "s";
+}
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+function renderJobs(jobs) {
+  const body = document.getElementById("jobsBody");
+  document.getElementById("jobsEmpty").classList.toggle("hide", jobs.length > 0);
+  body.innerHTML = jobs.map(j => {
+    let sum = {}; try { sum = j.summary ? JSON.parse(j.summary) : {}; } catch {}
+    const skipped = (sum.skipped_existing || 0) + (sum.skipped_duplicate || 0) + (sum.skipped_near_duplicate || 0);
+    const statusHtml = j.status === "running"
+      ? '<span class="badge running"><span class="spin"></span>running</span>'
+      : '<span class="badge ' + esc(j.status) + '">' + esc(j.status) + '</span>';
+    const stored = j.status === "running" ? "—" : (sum.stored ?? 0);
+    const failed = j.status === "running" ? "—" : (sum.failed ?? 0);
+    const skips = j.status === "running" ? "—" : skipped;
+    return `<tr>
+      <td>${statusHtml}</td>
+      <td class="q">${esc(j.query)}</td>
+      <td>${esc(j.source)}</td>
+      <td class="mode">${esc(sum.mode || "")}</td>
+      <td class="num">${stored}</td>
+      <td class="num">${skips}</td>
+      <td class="num">${failed}</td>
+      <td>${esc(fmtTime(j.created_at))}</td>
+      <td>${esc(fmtDur(j.created_at, j.finished_at))}</td>
+    </tr>` + (j.status === "error" && j.error ? `<tr><td></td><td colspan="8" class="msg err" style="white-space:normal">${esc(j.error)}</td></tr>` : "");
+  }).join("");
+}
+
+function startPoll() { stopPoll(); pollTimer = setInterval(loadJobs, 4000); }
+function stopPoll() { if (pollTimer) clearInterval(pollTimer); pollTimer = null; }
+document.getElementById("tokenInput").addEventListener("keydown", e => { if (e.key === "Enter") connect(); });
+boot();
+</script>
+</body>
+</html>

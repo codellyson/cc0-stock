@@ -1,11 +1,15 @@
 import type { Env } from "./types";
 import { StockMCP } from "./mcp";
 import {
+  createJob,
   getHashes,
   getImageById,
   insertRecord,
+  listJobs,
   queryImages,
   toRecord,
+  updateJob,
+  type JobInput,
   type StorePayload,
 } from "./store";
 
@@ -37,6 +41,15 @@ export default {
       }
       if (request.method === "POST" && path === "/store") {
         return await handleStore(request, env);
+      }
+      if (request.method === "POST" && path === "/jobs") {
+        return await handleCreateJob(request, env);
+      }
+      if (request.method === "PATCH" && path.startsWith("/jobs/")) {
+        return await handleUpdateJob(request, env, decodeURIComponent(path.slice("/jobs/".length)));
+      }
+      if (request.method === "GET" && path === "/jobs") {
+        return await handleListJobs(request, env, url);
       }
       if (path === "/") {
         return json({
@@ -103,6 +116,38 @@ async function handleStore(request: Request, env: Env): Promise<Response> {
 
   const result = await insertRecord(env, p);
   return json(result);
+}
+
+async function handleCreateJob(request: Request, env: Env): Promise<Response> {
+  const unauth = requireAuth(request, env);
+  if (unauth) return unauth;
+  const j = (await request.json().catch(() => null)) as JobInput | null;
+  if (!j || !j.id || !j.query || !j.source) {
+    return json({ error: "bad_request", message: "id, query, source required" }, 400);
+  }
+  await createJob(env, { id: j.id, query: j.query, source: j.source, pages: j.pages ?? 0, status: j.status ?? "running" });
+  return json({ ok: true, id: j.id });
+}
+
+async function handleUpdateJob(request: Request, env: Env, id: string): Promise<Response> {
+  const unauth = requireAuth(request, env);
+  if (unauth) return unauth;
+  const patch = (await request.json().catch(() => null)) as {
+    status?: string;
+    summary?: string;
+    error?: string;
+    finished_at?: string;
+  } | null;
+  if (!patch) return json({ error: "bad_request" }, 400);
+  await updateJob(env, id, patch);
+  return json({ ok: true });
+}
+
+async function handleListJobs(request: Request, env: Env, url: URL): Promise<Response> {
+  const unauth = requireAuth(request, env);
+  if (unauth) return unauth;
+  const limit = clamp(int(url.searchParams.get("limit"), 50), 1, 200);
+  return json(await listJobs(env, limit));
 }
 
 // --- helpers ---------------------------------------------------------------

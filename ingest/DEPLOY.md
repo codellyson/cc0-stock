@@ -20,16 +20,28 @@ Fill in `.env`:
   Create the token: dashboard → R2 → Manage R2 API Tokens → Object Read & Write, `cc0-stock`.
 - `OPENVERSE_CLIENT_ID` / `OPENVERSE_CLIENT_SECRET` — optional, higher Openverse rate limits.
 - `PORT` — service only; most PaaS set this automatically (default 8080).
+- `DASHBOARD_TOKEN` — **service only, required for the dashboard.** The token the browser
+  uses to reach `/run` and `/jobs`. Keep it DIFFERENT from `INGEST_SECRET` (this one is
+  entered in the browser; the Worker secret never is).
 
 ---
 
-## Shape 1 — Service (PaaS, e.g. justdeploy)
+## Shape 1 — Service + dashboard (PaaS, e.g. justdeploy)
+
+Open the service URL in a browser to get the **dashboard**: a token gate, a form to run
+ingests, and a live-updating table of every job (status, stored/skipped/failed, duration).
+Job history is stored in D1 (via the Worker), so it survives container restarts.
 
 Endpoints:
-- `GET /health` (and `GET /`) → `200 { ok: true }` — satisfies the platform health check.
-- `POST /run` with `Authorization: Bearer <INGEST_SECRET>` and body
+- `GET /` → the dashboard UI.
+- `GET /health` → `200 { ok: true }` — satisfies the platform health check.
+- `POST /run` with `Authorization: Bearer <DASHBOARD_TOKEN>` and body
   `{ "q": "...", "source": "both", "pages": 3, "pageSize": 20, "maxDistance": 8 }`
-  → runs one ingest, returns the summary JSON.
+  → starts a job, returns `{ jobId, status: "running" }` immediately (runs in background).
+- `GET /jobs` with `Authorization: Bearer <DASHBOARD_TOKEN>` → recent job history.
+
+Note the browser endpoints use `DASHBOARD_TOKEN`, not `INGEST_SECRET` — the Worker secret
+is used only server-side and never reaches the browser.
 
 **On justdeploy / railpack:** set the service **root directory to `ingest/`** so it uses
 this `package.json`. railpack runs `pnpm start` → `node server.mjs`, which listens on

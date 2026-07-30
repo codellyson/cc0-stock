@@ -187,3 +187,46 @@ function base64ToBytes(b64: string): Uint8Array {
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return bytes;
 }
+
+// --- job history (dashboard) -----------------------------------------------
+
+export interface JobInput {
+  id: string;
+  query: string;
+  source: string;
+  pages: number;
+  status: string;
+}
+
+export async function createJob(env: Env, j: JobInput): Promise<void> {
+  await env.DB.prepare(
+    `INSERT INTO jobs (id, query, source, pages, status, created_at) VALUES (?,?,?,?,?,?)`
+  )
+    .bind(j.id, j.query, j.source, j.pages, j.status, new Date().toISOString())
+    .run();
+}
+
+export async function updateJob(
+  env: Env,
+  id: string,
+  patch: { status?: string; summary?: string; error?: string; finished_at?: string }
+): Promise<void> {
+  const fields: string[] = [];
+  const vals: unknown[] = [];
+  for (const k of ["status", "summary", "error", "finished_at"] as const) {
+    if (patch[k] !== undefined) {
+      fields.push(`${k} = ?`);
+      vals.push(patch[k]);
+    }
+  }
+  if (!fields.length) return;
+  vals.push(id);
+  await env.DB.prepare(`UPDATE jobs SET ${fields.join(", ")} WHERE id = ?`).bind(...vals).run();
+}
+
+export async function listJobs(env: Env, limit: number): Promise<Record<string, unknown>[]> {
+  const rows = await env.DB.prepare(`SELECT * FROM jobs ORDER BY created_at DESC LIMIT ?`)
+    .bind(limit)
+    .all();
+  return rows.results as Record<string, unknown>[];
+}

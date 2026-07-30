@@ -43,3 +43,18 @@ CREATE VIRTUAL TABLE images_fts USING fts5(
   tags,
   tokenize = 'porter'
 );
+
+-- Ingest job history (written by the ingest service, read by its dashboard).
+-- IF NOT EXISTS so this block can be applied to an existing DB without dropping images.
+CREATE TABLE IF NOT EXISTS jobs (
+  id           TEXT PRIMARY KEY,
+  query        TEXT NOT NULL,
+  source       TEXT NOT NULL,
+  pages        INTEGER,
+  status       TEXT NOT NULL,   -- running | done | error
+  summary      TEXT,            -- JSON ingest summary
+  error        TEXT,
+  created_at   TEXT NOT NULL,
+  finished_at  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_jobs_created ON jobs(created_at);
