@@ -61,6 +61,15 @@
   .num { font-variant-numeric: tabular-nums; }
   .mode { font-family: var(--mono); font-size: 11px; color: var(--muted); }
   .empty { color: var(--muted); padding: 24px; text-align: center; }
+  tr.clickable { cursor: pointer; }
+  tr.clickable:hover td { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+  .caret { display: inline-block; width: 14px; color: var(--muted); }
+  .failcount { color: var(--err); font-weight: 700; }
+  tr.detrow td { background: var(--bg); }
+  .detcounts { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .errbox { max-height: 220px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; background: var(--panel); }
+  .errline { font-family: var(--mono); font-size: 12.5px; color: var(--err); white-space: normal; padding: 2px 0; }
+  .errline .xn { color: var(--muted); }
   /* login */
   .gate { max-width: 380px; margin: 12vh auto; }
   .gate .card { text-align: center; }
@@ -148,6 +157,8 @@
 <script>
 const TOKEN_KEY = "cc0_dash_token";
 let pollTimer = null;
+let lastJobs = [];
+const expanded = new Set();
 
 function token() { return localStorage.getItem(TOKEN_KEY) || ""; }
 function show(el) { document.getElementById(el).classList.remove("hide"); }
@@ -222,7 +233,8 @@ async function loadJobs(fromGate = false) {
     }
     if (!res.ok) return false;
     const jobs = await res.json();
-    renderJobs(Array.isArray(jobs) ? jobs : []);
+    lastJobs = Array.isArray(jobs) ? jobs : [];
+    renderJobs(lastJobs);
     return true;
   } catch (err) {
     return false;
@@ -246,21 +258,43 @@ function fmtDur(a, b) {
 }
 function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
+// Collapse per-image errors ("provider:id: message") to unique messages with counts,
+// so 57 identical failures read as one line instead of 57.
+function aggErrors(errs) {
+  const m = new Map();
+  for (const e of errs) {
+    const msg = e.includes(": ") ? e.slice(e.lastIndexOf(": ") + 2) : e;
+    m.set(msg, (m.get(msg) || 0) + 1);
+  }
+  return [...m.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+function toggleJob(id) {
+  if (expanded.has(id)) expanded.delete(id); else expanded.add(id);
+  renderJobs(lastJobs);
+}
+
 function renderJobs(jobs) {
   const body = document.getElementById("jobsBody");
   document.getElementById("jobsEmpty").classList.toggle("hide", jobs.length > 0);
   body.innerHTML = jobs.map(j => {
     let sum = {}; try { sum = j.summary ? JSON.parse(j.summary) : {}; } catch {}
     const skipped = (sum.skipped_existing || 0) + (sum.skipped_duplicate || 0) + (sum.skipped_near_duplicate || 0);
+    const errs = Array.isArray(sum.errors) ? sum.errors : [];
+    const hasDetails = errs.length > 0 || (j.status === "error" && j.error);
+    const isOpen = expanded.has(j.id);
     const statusHtml = j.status === "running"
       ? '<span class="badge running"><span class="spin"></span>running</span>'
       : '<span class="badge ' + esc(j.status) + '">' + esc(j.status) + '</span>';
     const stored = j.status === "running" ? "—" : (sum.stored ?? 0);
-    const failed = j.status === "running" ? "—" : (sum.failed ?? 0);
+    const failedN = sum.failed ?? 0;
+    const failed = j.status === "running" ? "—" : (failedN > 0 ? '<span class="failcount">' + failedN + '</span>' : failedN);
     const skips = j.status === "running" ? "—" : skipped;
-    return `<tr>
+    const caret = hasDetails ? '<span class="caret">' + (isOpen ? "▾" : "▸") + '</span>' : '<span class="caret" style="opacity:.25">·</span>';
+
+    let row = `<tr class="jobrow${hasDetails ? ' clickable' : ''}"${hasDetails ? ` onclick="toggleJob('${esc(j.id)}')"` : ''}>
       <td>${statusHtml}</td>
-      <td class="q">${esc(j.query)}</td>
+      <td class="q">${caret}${esc(j.query)}</td>
       <td>${esc(j.source)}</td>
       <td class="mode">${esc(sum.mode || "")}</td>
       <td class="num">${stored}</td>
@@ -268,7 +302,19 @@ function renderJobs(jobs) {
       <td class="num">${failed}</td>
       <td>${esc(fmtTime(j.created_at))}</td>
       <td>${esc(fmtDur(j.created_at, j.finished_at))}</td>
-    </tr>` + (j.status === "error" && j.error ? `<tr><td></td><td colspan="8" class="msg err" style="white-space:normal">${esc(j.error)}</td></tr>` : "");
+    </tr>`;
+
+    if (hasDetails && isOpen) {
+      const counts = `fetched ${sum.fetched ?? 0} · stored ${sum.stored ?? 0} · existing ${sum.skipped_existing ?? 0} · dup ${sum.skipped_duplicate ?? 0} · near-dup ${sum.skipped_near_duplicate ?? 0} · failed ${sum.failed ?? 0}`;
+      const errList = j.status === "error" && j.error
+        ? `<div class="errline">${esc(j.error)}</div>`
+        : aggErrors(errs).map(([msg, n]) => `<div class="errline">${esc(msg)} <span class="xn">×${n}</span></div>`).join("");
+      row += `<tr class="detrow"><td></td><td colspan="8">
+        <div class="detcounts">${counts}</div>
+        <div class="errbox">${errList || '<span style="color:var(--muted)">no per-item errors</span>'}</div>
+      </td></tr>`;
+    }
+    return row;
   }).join("");
 }
 
