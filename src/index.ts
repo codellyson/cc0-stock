@@ -1,4 +1,5 @@
 import type { Env } from "./types";
+import { GALLERY_HTML } from "./gallery";
 import { handleMcp } from "./mcp";
 import {
   createJob,
@@ -49,9 +50,15 @@ export default {
         return await handleListJobs(request, env, url);
       }
       if (path === "/") {
+        return new Response(GALLERY_HTML, {
+          headers: { "content-type": "text/html; charset=utf-8" },
+        });
+      }
+      if (path === "/api") {
         return json({
           service: "cc0-stock",
           endpoints: {
+            "GET /": "browse gallery (HTML)",
             "GET /search?q=&page=&per_page=": "keyword search, returns image records",
             "GET /images/:id": "single image record",
             "GET /file/:key": "raw image bytes from R2",
@@ -59,7 +66,6 @@ export default {
             "GET /hashes": "admin: existing id/sha256/phash for dedup (Bearer INGEST_SECRET)",
             "POST /store": "admin: store one prepared record (Bearer INGEST_SECRET)",
           },
-          note: "Ingestion runs off-Worker (see ingest/ CLI); the Worker only serves and stores.",
         });
       }
       return json({ error: "not_found" }, 404);

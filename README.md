@@ -38,6 +38,7 @@ Wikimedia API ─┴───►│ (native sharp, fast, no CPU cap)            
 
 | Method | Path | Purpose |
 |---|---|---|
+| GET | `/` | Browse gallery (HTML) — search + image grid, public. |
 | GET | `/search?q=&page=&per_page=` | Keyword search (FTS5). Returns image records. |
 | GET | `/images/:id` | Single record by id. |
 | GET | `/file/:key` | Raw image bytes from R2. |
