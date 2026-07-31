@@ -51,7 +51,7 @@ export function loadConfig(env = process.env) {
 }
 
 export async function runIngest(params, config) {
-  const { q, sources, pages, pageSize, maxDistance, concurrency, timeoutMs } = params;
+  const { q, sources, pages, pageSize, maxDistance, concurrency, timeoutMs, jobId } = params;
   const { workerUrl, secret, r2 } = config;
   if (!workerUrl) throw new Error("WORKER_URL is required");
   if (!secret) throw new Error("INGEST_SECRET is required");
@@ -208,6 +208,7 @@ export async function runIngest(params, config) {
           phash: ph === null ? null : toHex(ph),
           tags: item.tags,
           tag_source: item.tagSource,
+          job_id: jobId ?? null,
           r2_key: r2Key,
           ...(directR2 ? {} : { image_base64: buf.toString("base64") }),
         });

@@ -22,12 +22,18 @@ export function safeJsonArray(v: unknown): string[] {
 
 export async function queryImages(
   env: Env,
-  opts: { q?: string; page: number; perPage: number }
+  opts: { q?: string; job?: string; page: number; perPage: number }
 ): Promise<Record<string, unknown>[]> {
   const offset = (opts.page - 1) * opts.perPage;
 
   let rows: D1Result;
-  if (opts.q && opts.q.trim()) {
+  if (opts.job) {
+    rows = await env.DB.prepare(
+      `SELECT * FROM images WHERE job_id = ? ORDER BY ingested_at DESC LIMIT ? OFFSET ?`
+    )
+      .bind(opts.job, opts.perPage, offset)
+      .all();
+  } else if (opts.q && opts.q.trim()) {
     const match = ftsQuery(opts.q);
     if (!match) return [];
     rows = await env.DB.prepare(
@@ -104,6 +110,7 @@ export interface StorePayload {
   phash?: string | null;
   tags: string[];
   tag_source: string;
+  job_id?: string | null;
   r2_key: string;
   image_base64?: string; // present only in fallback (base64-through-Worker) mode
 }
@@ -145,8 +152,8 @@ export async function insertRecord(
       `INSERT INTO images
         (id, provider, title, description, creator, attribution, source,
          license, license_version, license_url, provenance_url, origin_url,
-         width, height, mime_type, r2_key, sha256, phash, tags, tag_source, ingested_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+         width, height, mime_type, r2_key, sha256, phash, tags, tag_source, job_id, ingested_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
     ).bind(
       p.id,
       p.provider,
@@ -168,6 +175,7 @@ export async function insertRecord(
       p.phash ?? null,
       JSON.stringify(p.tags),
       p.tag_source,
+      p.job_id ?? null,
       now
     ),
     env.DB.prepare(`INSERT INTO images_fts (id, title, description, tags) VALUES (?,?,?,?)`).bind(

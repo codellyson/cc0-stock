@@ -26,12 +26,14 @@ CREATE TABLE images (
   phash           TEXT,               -- 64-bit dHash (hex) for near-duplicate detection; null if undecodable
   tags            TEXT,               -- JSON array of cleaned label strings
   tag_source      TEXT,               -- provenance of the labels, e.g. "provider+title"
+  job_id          TEXT,               -- the ingest job that stored this image (null for CLI/untracked)
   ingested_at     TEXT NOT NULL       -- ISO timestamp
 );
 
 CREATE INDEX        idx_images_license  ON images(license);
 CREATE INDEX        idx_images_provider ON images(provider);
 CREATE INDEX        idx_images_ingested ON images(ingested_at);
+CREATE INDEX        idx_images_job      ON images(job_id);
 CREATE UNIQUE INDEX idx_images_sha256   ON images(sha256);
 
 -- Full-text index for keyword search over title, description, and tags. `id` is

@@ -70,6 +70,12 @@
   .errbox { max-height: 220px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; background: var(--panel); }
   .errline { font-family: var(--mono); font-size: 12.5px; color: var(--err); white-space: normal; padding: 2px 0; }
   .errline .xn { color: var(--muted); }
+  .imgwrap { margin-top: 10px; }
+  .imgnote { color: var(--muted); font-size: 13px; padding: 4px 0; }
+  .imgstrip { display: flex; flex-wrap: wrap; gap: 8px; }
+  .imgstrip .thumb { width: 84px; height: 64px; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); background: var(--bg); }
+  .imgstrip .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .imgstrip .thumb:hover { outline: 2px solid var(--accent); }
   /* login */
   .gate { max-width: 380px; margin: 12vh auto; }
   .gate .card { text-align: center; }
@@ -159,6 +165,7 @@ const TOKEN_KEY = "cc0_dash_token";
 let pollTimer = null;
 let lastJobs = [];
 const expanded = new Set();
+const jobImages = {}; // job id -> "loading" | array of image records
 
 function token() { return localStorage.getItem(TOKEN_KEY) || ""; }
 function show(el) { document.getElementById(el).classList.remove("hide"); }
@@ -270,8 +277,35 @@ function aggErrors(errs) {
 }
 
 function toggleJob(id) {
-  if (expanded.has(id)) expanded.delete(id); else expanded.add(id);
+  if (expanded.has(id)) expanded.delete(id);
+  else {
+    expanded.add(id);
+    if (jobImages[id] === undefined) loadJobImages(id); // lazy-load thumbnails once
+  }
   renderJobs(lastJobs);
+}
+
+async function loadJobImages(id) {
+  jobImages[id] = "loading";
+  try {
+    const res = await api("/jobs/" + encodeURIComponent(id) + "/images");
+    jobImages[id] = res.ok ? await res.json() : [];
+  } catch {
+    jobImages[id] = [];
+  }
+  if (expanded.has(id)) renderJobs(lastJobs);
+}
+
+function imagesHtml(id) {
+  const imgs = jobImages[id];
+  if (imgs === "loading") return '<div class="imgnote">loading images…</div>';
+  if (!imgs || !imgs.length) return '<div class="imgnote">No images recorded for this job.</div>';
+  return '<div class="imgstrip">' + imgs.map(it =>
+    '<a class="thumb" href="' + esc(it.image_url) + '" target="_blank" rel="noopener" title="' + esc(it.title || "") + '">' +
+      '<img loading="lazy" src="' + esc(it.image_url) + '" alt="' + esc(it.title || "") + '" ' +
+        'onerror="this.parentElement.style.display=\'none\'" />' +
+    '</a>'
+  ).join("") + '</div>';
 }
 
 function renderJobs(jobs) {
@@ -281,7 +315,7 @@ function renderJobs(jobs) {
     let sum = {}; try { sum = j.summary ? JSON.parse(j.summary) : {}; } catch {}
     const skipped = (sum.skipped_existing || 0) + (sum.skipped_duplicate || 0) + (sum.skipped_near_duplicate || 0);
     const errs = Array.isArray(sum.errors) ? sum.errors : [];
-    const hasDetails = errs.length > 0 || (j.status === "error" && j.error);
+    const hasDetails = j.status !== "running"; // any finished job expands to show counts, errors, images
     const isOpen = expanded.has(j.id);
     const statusHtml = j.status === "running"
       ? '<span class="badge running"><span class="spin"></span>running</span>'
@@ -309,9 +343,13 @@ function renderJobs(jobs) {
       const errList = j.status === "error" && j.error
         ? `<div class="errline">${esc(j.error)}</div>`
         : aggErrors(errs).map(([msg, n]) => `<div class="errline">${esc(msg)} <span class="xn">×${n}</span></div>`).join("");
+      const errBlock = errList
+        ? `<div class="errbox">${errList}</div>`
+        : "";
       row += `<tr class="detrow"><td></td><td colspan="8">
         <div class="detcounts">${counts}</div>
-        <div class="errbox">${errList || '<span style="color:var(--muted)">no per-item errors</span>'}</div>
+        ${errBlock}
+        <div class="imgwrap">${imagesHtml(j.id)}</div>
       </td></tr>`;
     }
     return row;

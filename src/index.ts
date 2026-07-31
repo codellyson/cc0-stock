@@ -77,10 +77,11 @@ export default {
 
 async function handleSearch(env: Env, url: URL): Promise<Response> {
   const q = url.searchParams.get("q")?.trim() || undefined;
+  const job = url.searchParams.get("job")?.trim() || undefined;
   const perPage = clamp(int(url.searchParams.get("per_page"), 20), 1, 100);
   const page = Math.max(1, int(url.searchParams.get("page"), 1));
 
-  const rows = await queryImages(env, { q, page, perPage });
+  const rows = await queryImages(env, { q, job, page, perPage });
   const results = rows.map((r) => toRecord(r, url.origin));
   return json({ query: q ?? null, page, per_page: perPage, count: results.length, results });
 }

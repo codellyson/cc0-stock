@@ -85,6 +85,7 @@ const server = createServer(async (req, res) => {
       const sources = resolveSources(body.source);
       if (!sources) return send(res, 400, { error: "source must be openverse | wikimedia | both" });
 
+      const jobId = randomUUID();
       const params = {
         q: body.q,
         sources,
@@ -93,9 +94,9 @@ const server = createServer(async (req, res) => {
         maxDistance: clampInt(body.maxDistance, 8, 0, 30),
         concurrency: clampInt(body.concurrency, 4, 1, 20),
         timeoutMs: clampInt(body.timeout, 45000, 1000, 300000),
+        jobId,
       };
 
-      const jobId = randomUUID();
       const created = await workerFetch("/jobs", "POST", {
         id: jobId,
         query: body.q,
@@ -133,6 +134,17 @@ const server = createServer(async (req, res) => {
       const wr = await workerFetch("/jobs?limit=100", "GET");
       const data = await wr.json().catch(() => []);
       return send(res, wr.status, data);
+    }
+
+    // Images stored by a specific job (proxied from the Worker's public /search?job=).
+    const imgMatch = req.method === "GET" && req.url.match(/^\/jobs\/([^/]+)\/images$/);
+    if (imgMatch) {
+      const auth = dashAuth(req);
+      if (!auth.ok) return send(res, auth.code, { error: auth.msg });
+      const jobId = decodeURIComponent(imgMatch[1]);
+      const wr = await fetch(`${config.workerUrl}/search?job=${encodeURIComponent(jobId)}&per_page=100`);
+      const data = await wr.json().catch(() => ({ results: [] }));
+      return send(res, wr.status, data.results ?? []);
     }
 
     send(res, 404, { error: "not_found" });
