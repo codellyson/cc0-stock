@@ -1,5 +1,6 @@
 import type { Env } from "./types";
 import { GALLERY_HTML } from "./gallery";
+import { DOCS_HTML, HOME_HTML } from "./site";
 import { handleMcp } from "./mcp";
 import {
   createJob,
@@ -49,25 +50,15 @@ export default {
       if (request.method === "GET" && path === "/jobs") {
         return await handleListJobs(request, env, url);
       }
+      // Host-aware root: the api.* domain returns the JSON index; the website domain
+      // returns the landing page. Both domains still serve every data route below.
+      const isApiHost = url.hostname.startsWith("api.");
+      if (path === "/gallery") return html(GALLERY_HTML);
+      if (path === "/docs") return html(DOCS_HTML);
       if (path === "/") {
-        return new Response(GALLERY_HTML, {
-          headers: { "content-type": "text/html; charset=utf-8" },
-        });
+        return isApiHost ? apiIndex() : html(HOME_HTML);
       }
-      if (path === "/api") {
-        return json({
-          service: "cc0-stock",
-          endpoints: {
-            "GET /": "browse gallery (HTML)",
-            "GET /search?q=&page=&per_page=": "keyword search, returns image records",
-            "GET /images/:id": "single image record",
-            "GET /file/:key": "raw image bytes from R2",
-            "ALL /mcp": "MCP server for agents (search_images, get_image)",
-            "GET /hashes": "admin: existing id/sha256/phash for dedup (Bearer INGEST_SECRET)",
-            "POST /store": "admin: store one prepared record (Bearer INGEST_SECRET)",
-          },
-        });
-      }
+      if (path === "/api") return apiIndex();
       return json({ error: "not_found" }, 404);
     } catch (err) {
       return json({ error: "internal", message: (err as Error).message }, 500);
@@ -179,5 +170,24 @@ function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data, null, 2), {
     status,
     headers: { "content-type": "application/json; charset=utf-8" },
+  });
+}
+
+function html(body: string): Response {
+  return new Response(body, { headers: { "content-type": "text/html; charset=utf-8" } });
+}
+
+function apiIndex(): Response {
+  return json({
+    service: "cc0-stock",
+    endpoints: {
+      "GET /search?q=&page=&per_page=": "keyword search, returns image records",
+      "GET /images/:id": "single image record",
+      "GET /file/:key": "raw image bytes from R2",
+      "ALL /mcp": "MCP server for agents (search_images, get_image)",
+      "GET /hashes": "admin: existing id/sha256/phash for dedup (Bearer INGEST_SECRET)",
+      "POST /store": "admin: store one prepared record (Bearer INGEST_SECRET)",
+    },
+    website: "https://cc0-stock.kreativekorna.com",
   });
 }

@@ -21,8 +21,10 @@ export const GALLERY_HTML = `<!doctype html>
     font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
   header { position:sticky; top:0; z-index:5; background:var(--panel); border-bottom:1px solid var(--border);
     padding:12px 20px; display:flex; gap:14px; align-items:center; }
-  header h1 { font-size:16px; margin:0; white-space:nowrap; }
-  header .lic { font-size:12px; color:var(--muted); }
+  header .brand { font-size:16px; font-weight:700; color:var(--text); text-decoration:none; white-space:nowrap; }
+  header .topnav { display:flex; gap:14px; }
+  header .topnav a { font-size:14px; color:var(--muted); text-decoration:none; }
+  header .topnav a.on, header .topnav a:hover { color:var(--text); }
   #q { flex:1; max-width:520px; padding:9px 12px; border:1px solid var(--border); border-radius:8px;
     background:var(--bg); color:var(--text); font-size:14px; }
   #q:focus { outline:2px solid var(--accent); outline-offset:-1px; }
@@ -50,10 +52,10 @@ export const GALLERY_HTML = `<!doctype html>
 </head>
 <body>
 <header>
-  <h1>cc0-stock</h1>
+  <a href="/" class="brand">cc0-stock</a>
+  <nav class="topnav"><a href="/">Home</a><a href="/gallery" class="on">Gallery</a><a href="/docs">MCP Docs</a></nav>
   <input id="q" type="search" placeholder="Search the CC0 library…  (blank = most recent)" autocomplete="off" />
   <span id="count"></span>
-  <span class="lic">CC0 · free to use, no attribution</span>
 </header>
 <main>
   <div id="grid" class="grid"></div>

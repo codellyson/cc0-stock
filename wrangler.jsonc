@@ -4,14 +4,24 @@
   "main": "src/index.ts",
   "compatibility_date": "2025-07-01",
   "observability": { "enabled": true },
+  // Keep the *.workers.dev URL working alongside the custom domains (fallback).
+  "workers_dev": true,
 
   // 8787 is taken on this machine by the justnotetaking worker; use 8799 here.
   "dev": { "port": 8799 },
 
+  // Serve both domains from this one Worker. Requires the kreativekorna.com zone to be
+  // active on this Cloudflare account; custom_domain provisions DNS + TLS automatically.
+  "routes": [
+    { "pattern": "cc0-stock.kreativekorna.com", "custom_domain": true },
+    { "pattern": "api.cc0-stock.kreativekorna.com", "custom_domain": true }
+  ],
+
   "vars": {
-    // Fill in after first deploy: your Worker's public origin, no trailing slash.
-    // Used to build absolute image_url values in MCP tool responses.
-    "PUBLIC_BASE_URL": "https://cc0-stock.iamdellyson.workers.dev"
+    // Left blank on purpose: image_url is built from the request's own origin, so the
+    // website domain returns website URLs and the API domain returns API URLs. Set a
+    // value only to force one absolute origin everywhere.
+    "PUBLIC_BASE_URL": ""
   },
 
   "r2_buckets": [
