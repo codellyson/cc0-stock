@@ -207,8 +207,10 @@ export interface JobInput {
 }
 
 export async function createJob(env: Env, j: JobInput): Promise<void> {
+  // Idempotent: real jobs use unique uuids (never collide); OR REPLACE only matters for
+  // re-runnable fixed-id callers like the JustAPI documentation flow.
   await env.DB.prepare(
-    `INSERT INTO jobs (id, query, source, pages, status, created_at) VALUES (?,?,?,?,?,?)`
+    `INSERT OR REPLACE INTO jobs (id, query, source, pages, status, created_at) VALUES (?,?,?,?,?,?)`
   )
     .bind(j.id, j.query, j.source, j.pages, j.status, new Date().toISOString())
     .run();
